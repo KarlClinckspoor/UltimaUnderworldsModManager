@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Underworld.Shared/Underworld.Shared.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- UltimaHacks' compiled hacks (MIT, John Glassmyer), for the GOG executables -->
+    <EmbeddedResource Include="$(RepoRoot)hacks/uw1.hack" LogicalName="hacks/uw1.hack" />
+    <EmbeddedResource Include="$(RepoRoot)hacks/uw2.hack" LogicalName="hacks/uw2.hack" />
+    <EmbeddedResource Include="$(RepoRoot)hacks/LICENSE-UltimaHacks.txt" LogicalName="hacks/LICENSE-UltimaHacks.txt" />
+  </ItemGroup>
+</Project>

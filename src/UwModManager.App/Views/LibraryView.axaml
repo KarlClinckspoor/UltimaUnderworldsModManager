@@ -1,0 +1,54 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:UwModManager.App.ViewModels"
+             xmlns:core="using:UwModManager.Core"
+             x:Class="UwModManager.App.Views.LibraryView"
+             x:DataType="vm:LibraryViewModel">
+  <DockPanel>
+    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8">
+        <Button Classes="accent" Content="Import a mod…" Command="{Binding ImportCommand}" />
+        <Button Content="Remove" Command="{Binding RemoveCommand}" IsEnabled="{Binding HasSelection}" />
+      </StackPanel>
+      <StackPanel>
+        <TextBlock Classes="h1" Text="Library" />
+        <TextBlock Classes="dim" Text="Mod packages (.uwmod), made with the editor's Tools > Export as mod, or captured here." />
+      </StackPanel>
+    </DockPanel>
+    <Grid ColumnDefinitions="360,16,*">
+      <ListBox ItemsSource="{Binding Entries}" SelectedItem="{Binding Selected}">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="core:LibraryEntry">
+            <StackPanel Spacing="1" Margin="0,3">
+              <TextBlock FontWeight="SemiBold" TextTrimming="CharacterEllipsis">
+                <Run Text="{Binding Name}" /><Run Text="  " /><Run Text="{Binding Version}" Classes="dim" />
+              </TextBlock>
+              <TextBlock FontSize="12" Classes="dim" TextTrimming="CharacterEllipsis">
+                <Run Text="{Binding GameName}" /><Run Text=" · " /><Run Text="{Binding Kind}" />
+              </TextBlock>
+            </StackPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+      <ScrollViewer Grid.Column="2" IsVisible="{Binding HasSelection}">
+        <StackPanel Spacing="6">
+          <TextBlock Text="{Binding Title}" FontSize="18" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding Line}" Classes="dim" />
+          <TextBlock Text="{Binding Description}" TextWrapping="Wrap" Margin="0,6,0,0" />
+          <ItemsControl ItemsSource="{Binding Warnings}">
+            <ItemsControl.ItemTemplate><DataTemplate x:DataType="x:String"><TextBlock Classes="warn" Text="{Binding StringFormat='! {0}'}" TextWrapping="Wrap" /></DataTemplate></ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Text="{Binding Exhumed}" Classes="dim" TextWrapping="Wrap" FontSize="12" />
+          <TextBlock Classes="h2" Text="Changes" />
+          <ItemsControl ItemsSource="{Binding Changes}">
+            <ItemsControl.ItemTemplate><DataTemplate x:DataType="x:String"><TextBlock Text="{Binding StringFormat='• {0}'}" FontSize="12" TextWrapping="Wrap" /></DataTemplate></ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Text="{Binding Origin}" Classes="dim" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0" />
+          <Expander Header="README" Margin="0,8,0,0">
+            <SelectableTextBlock Text="{Binding Readme}" TextWrapping="Wrap" FontFamily="monospace" FontSize="12" />
+          </Expander>
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+  </DockPanel>
+</UserControl>

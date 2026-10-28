@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The editor's Unity-free assemblies (Underworld.Formats and Underworld.Modding asmdefs), built
+       from its sources as one library, with the editor's rules: .NET Standard 2.0 and C# 8. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>8.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>$(NoWarn);CS0618;CS0414;CS0169;CS0649;CS0219;CS0162;CS0168</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(EditorRoot)/Assets/Scripts/Formats/**/*.cs" />
+    <Compile Include="$(EditorRoot)/Assets/Scripts/Modding/**/*.cs" />
+  </ItemGroup>
+  <Target Name="CheckEditorRoot" BeforeTargets="CoreCompile">
+    <Error Condition="'$(EditorRoot)' == ''" Text="The editor's sources were not found. Put a checkout of UltimaUnderworldEditorUnity (branch modding) next to this folder, or in external/, or build with -p:EditorRoot=PATH." />
+  </Target>
+</Project>

@@ -1,0 +1,108 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:UwModManager.App.ViewModels"
+             x:Class="UwModManager.App.Views.TargetView"
+             x:DataType="vm:TargetViewModel">
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Spacing="6" Margin="0,0,12,12">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
+          <Button Content="Reload" Command="{Binding ReloadCommand}" />
+          <Button Content="Forget…" Command="{Binding RemoveCommand}" />
+        </StackPanel>
+        <StackPanel Spacing="2">
+          <TextBlock Classes="h1" Text="{Binding Header}" />
+          <TextBlock Classes="dim" Text="{Binding Kind}" />
+          <TextBlock Classes="dim" FontSize="12" Text="{Binding Folder}" TextWrapping="Wrap" />
+        </StackPanel>
+      </DockPanel>
+      <ItemsControl ItemsSource="{Binding StatusLines}" Margin="0,6,0,0">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="x:String"><TextBlock Text="{Binding}" FontSize="12" Classes="dim" TextWrapping="Wrap" /></DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <Border Classes="card" IsVisible="{Binding HasLocalChanges}" Margin="0,6,0,0">
+        <DockPanel>
+          <Button DockPanel.Dock="Right" Content="Capture as a mod…" Command="{Binding CaptureCommand}" VerticalAlignment="Center" Margin="12,0,0,0" />
+          <TextBlock Classes="warn" Text="{Binding LocalChanges}" TextWrapping="Wrap" />
+        </DockPanel>
+      </Border>
+
+      <TextBlock Classes="h2" Text="Mod" />
+      <Grid ColumnDefinitions="340,16,*">
+        <ListBox Grid.Column="0" ItemsSource="{Binding Choices}" SelectedItem="{Binding Selected}" MaxHeight="360">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:ModChoice">
+              <DockPanel Margin="0,3">
+                <TextBlock DockPanel.Dock="Right" Text="{Binding Badge}" FontSize="11" Classes="dim" VerticalAlignment="Top" Margin="8,2,0,0" />
+                <StackPanel Spacing="1">
+                  <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Text="{Binding Detail}" FontSize="12" Classes="dim" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+              </DockPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+        <Border Grid.Column="2" Classes="card" VerticalAlignment="Top">
+          <StackPanel Spacing="6" DataContext="{Binding Selected}" x:DataType="vm:ModChoice">
+            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="16" />
+            <TextBlock Text="{Binding Description}" TextWrapping="Wrap" />
+            <ItemsControl ItemsSource="{Binding Problems}">
+              <ItemsControl.ItemTemplate><DataTemplate x:DataType="x:String"><TextBlock Classes="bad" Text="{Binding StringFormat='✕ {0}'}" TextWrapping="Wrap" /></DataTemplate></ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <ItemsControl ItemsSource="{Binding Warnings}">
+              <ItemsControl.ItemTemplate><DataTemplate x:DataType="x:String"><TextBlock Classes="warn" Text="{Binding StringFormat='! {0}'}" TextWrapping="Wrap" /></DataTemplate></ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <ItemsControl ItemsSource="{Binding Notes}">
+              <ItemsControl.ItemTemplate><DataTemplate x:DataType="x:String"><TextBlock Classes="dim" Text="{Binding StringFormat='· {0}'}" TextWrapping="Wrap" FontSize="12" /></DataTemplate></ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <ItemsControl ItemsSource="{Binding Changes}">
+              <ItemsControl.ItemTemplate><DataTemplate x:DataType="x:String"><TextBlock Text="{Binding StringFormat='• {0}'}" FontSize="12" TextWrapping="Wrap" /></DataTemplate></ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,8,0,0" IsVisible="{Binding IsDos}">
+        <CheckBox Content="UltimaHacks (mouse-look, WASD, rune keys…)" IsChecked="{Binding UltimaHacks}" ToolTip.Tip="{Binding UltimaHacksCredit}" />
+      </StackPanel>
+      <StackPanel Spacing="6" Margin="0,8,0,0" IsVisible="{Binding IsExhumed}">
+        <CheckBox Content="Also the mod's recommended enhancements" IsChecked="{Binding UseRecommended}" />
+        <TextBlock Text="Enhancements" Classes="dim" FontSize="12" />
+        <ItemsControl ItemsSource="{Binding Enhancements}">
+          <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:EnhancementChoice"><CheckBox Content="{Binding Name}" IsChecked="{Binding On}" Margin="0,0,14,0" /></DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,10,0,0">
+        <Button Classes="accent" Content="Use this" Command="{Binding ApplyCommand}" MinWidth="120" />
+        <Button Content="▶ Play" Command="{Binding PlayCommand}" MinWidth="100" FontWeight="SemiBold" />
+        <Button Content="Capture changes as a mod…" Command="{Binding CaptureCommand}" IsVisible="{Binding IsDos}" />
+        <ProgressBar IsIndeterminate="True" Width="120" IsVisible="{Binding Busy}" VerticalAlignment="Center" />
+      </StackPanel>
+
+      <TextBlock Classes="h2" Text="Saved games" />
+      <ItemsControl ItemsSource="{Binding Slots}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:SlotItem">
+            <Border Classes="card" Margin="0,0,0,6" Padding="10,8">
+              <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6">
+                  <Button Content="Export as mod…" IsEnabled="{Binding Exists}" Command="{Binding $parent[ItemsControl].((vm:TargetViewModel)DataContext).ExportSaveCommand}" CommandParameter="{Binding}" />
+                  <Button Content="Install a saved game…" Command="{Binding $parent[ItemsControl].((vm:TargetViewModel)DataContext).InstallSaveCommand}" CommandParameter="{Binding}" />
+                  <Button Content="Restore a backup…" Command="{Binding $parent[ItemsControl].((vm:TargetViewModel)DataContext).RestoreSaveCommand}" CommandParameter="{Binding}" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                  <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                  <TextBlock Text="{Binding Text}" Classes="dim" />
+                </StackPanel>
+              </DockPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

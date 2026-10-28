@@ -1,0 +1,10 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:UwModManager.App.ViewModels"
+             x:Class="UwModManager.App.Views.WelcomeView"
+             x:DataType="vm:WelcomeViewModel">
+  <StackPanel Spacing="10" MaxWidth="640" HorizontalAlignment="Left">
+    <TextBlock Classes="h1" Text="Welcome" />
+    <TextBlock Text="{Binding Text}" TextWrapping="Wrap" />
+  </StackPanel>
+</UserControl>

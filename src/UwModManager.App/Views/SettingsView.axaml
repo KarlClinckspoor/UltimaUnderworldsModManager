@@ -1,0 +1,25 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:UwModManager.App.ViewModels"
+             x:Class="UwModManager.App.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+  <ScrollViewer>
+    <StackPanel Spacing="8" MaxWidth="760" HorizontalAlignment="Left">
+      <TextBlock Classes="h1" Text="Settings" />
+      <TextBlock Classes="h2" Text="DOSBox" />
+      <TextBlock Classes="dim" FontSize="12" TextWrapping="Wrap" Text="Empty: GOG's DOSBox in the game folder, else dosbox-staging, dosbox or dosbox-x on the PATH. GOG's own setups (dosbox*.conf in the game folder) are used when there." />
+      <DockPanel>
+        <Button DockPanel.Dock="Right" Content="Browse…" Command="{Binding BrowseCommand}" Margin="8,0,0,0" />
+        <TextBox Text="{Binding DosBox}" PlaceholderText="DOSBox's program" />
+      </DockPanel>
+      <TextBlock Classes="h2" Text="The manager's folder" />
+      <SelectableTextBlock Text="{Binding Folder}" FontSize="12" />
+      <TextBlock Classes="dim" FontSize="12" TextWrapping="Wrap" Text="The vault of original files, the library, Exhumed's homes for mods and the saved-game backups. UWMM_HOME changes it." />
+      <TextBlock Classes="h2" Text="Credits" />
+      <TextBlock Text="{Binding Credits}" TextWrapping="Wrap" />
+      <Expander Header="UltimaHacks' licence">
+        <SelectableTextBlock Text="{Binding HackLicense}" TextWrapping="Wrap" FontSize="12" />
+      </Expander>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

@@ -1,0 +1,18 @@
+<Project>
+  <PropertyGroup>
+    <RepoRoot>$(MSBuildThisFileDirectory)</RepoRoot>
+    <!-- The shared file formats and mod packages live in the editor (UltimaUnderworldEditorUnity,
+         branch modding: Assets/Scripts/Formats and Assets/Scripts/Modding), Unity-free. The
+         manager compiles them from an editor checkout: by default the folder next to this one,
+         else external/UltimaUnderworldEditorUnity (a submodule), else EditorRoot given on the
+         command line (dotnet build -p:EditorRoot=PATH). -->
+    <EditorRoot Condition="'$(EditorRoot)' == '' and Exists('$(MSBuildThisFileDirectory)../UltimaUnderworldEditorUnity/Assets/Scripts/Modding')">$(MSBuildThisFileDirectory)../UltimaUnderworldEditorUnity</EditorRoot>
+    <EditorRoot Condition="'$(EditorRoot)' == '' and Exists('$(MSBuildThisFileDirectory)external/UltimaUnderworldEditorUnity/Assets/Scripts/Modding')">$(MSBuildThisFileDirectory)external/UltimaUnderworldEditorUnity</EditorRoot>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <Version>0.1.0</Version>
+    <Authors>Karl Clinckspoor</Authors>
+    <Product>Ultima Underworlds Mod Manager</Product>
+  </PropertyGroup>
+</Project>
