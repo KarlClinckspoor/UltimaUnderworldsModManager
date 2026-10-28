@@ -38,7 +38,14 @@ public static class Hacks
     {
         byte[] exe = (byte[])original.Clone();
         IList<KeyValuePair<int, int>>? written = null;
-        if (ultimaHacks)
+        var already = For(game);
+        if (already.IsAppliedTo(original))
+        {
+            // the folder came with UltimaHacks already applied: that is its original, and the
+            // hack's code is protected from the mod's patches either way
+            written = already.WrittenRanges();
+        }
+        else if (ultimaHacks)
         {
             if (!ExeIdentity.IsGogOriginal(original, game))
                 throw new ModApplyException(ExeIdentity.ExeName(game) + " is not the GOG release's, which UltimaHacks' hack is made for");

@@ -82,11 +82,20 @@ public sealed partial class MainViewModel : ViewModelBase
     {
         string? folder = await Dialogs.PickFolder("The DOS game's folder (UW.EXE or UW2.EXE and DATA)");
         if (folder == null) return;
+        bool asItIs = false;
+        string? foreign = Manager.ForeignMarker(folder);
+        if (foreign != null)
+        {
+            if (await Dialogs.Ask("Taken over before", foreign, "Take it as it is now", "Cancel") != 0) return;
+            asItIs = true;
+        }
         await Guard(async () =>
         {
-            var t = Manager.AddDos(folder);
+            var t = Manager.AddDos(folder, null, asItIs);
             var (gog, differ, missing) = Manager.CompareWithGog(t);
-            var notes = new List<string> { $"{t.Baseline.Count} files are kept in the vault: the manager can always put the game back as it is now." };
+            var notes = new List<string> { t.Written.Count > 0
+                ? $"The manager took this folder over before; it has {t.ActiveMod} in place, and its originals are in the vault."
+                : $"{t.Baseline.Count} files are kept in the vault: the manager can always put the game back as it is now." };
             notes.Add(gog ? "These are the GOG release's files." : $"These are not quite the GOG release's files ({differ.Count} differ, {missing.Count} missing); mods made from the GOG release may not install.");
             foreach (var c in DosGame.CdImageConfs(t.Folder))
                 notes.Add($"{c} runs the game from GOG's CD image (game.gog), which never sees files changed in the folder. Extract the image into the folder (7-Zip opens it) and change that setup to mount the folder instead.");

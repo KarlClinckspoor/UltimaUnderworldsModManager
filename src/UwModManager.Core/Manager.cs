@@ -31,7 +31,10 @@ public sealed class Manager
     // ---- targets
 
     /// <summary>Takes over a DOS game folder: its files' originals into the vault.</summary>
-    public Target AddDos(string folder, string? name = null)
+    /// <remarks>A folder the manager took over before says so (DosGame.MarkerName): its
+    /// originals and the mod in place come from there, provided this manager's vault has them;
+    /// <paramref name="asItIs"/> takes the folder's files as the originals regardless.</remarks>
+    public Target AddDos(string folder, string? name = null, bool asItIs = false)
     {
         folder = Path.GetFullPath(folder);
         var game = DosGame.Detect(folder) ?? throw new InvalidOperationException(folder + " holds neither UW.EXE nor UW2.EXE with a DATA folder");
@@ -39,10 +42,41 @@ public sealed class Manager
             throw new InvalidOperationException("the manager already has " + folder);
         var t = new Target { Kind = TargetKind.Dos, Folder = folder, Game = game == GameKind.UW2 ? "uw2" : "uw1" };
         t.Name = name ?? (game == GameKind.UW2 ? "Ultima Underworld II (DOS)" : "Ultima Underworld (DOS)");
-        DosGame.Adopt(t, Vault);
+        var marker = asItIs ? null : DosGame.ReadMarker(folder);
+        if (marker != null && marker.Game == t.Game)
+        {
+            var same = State.Targets.FirstOrDefault(x => x.Kind == TargetKind.Dos && x.Id == marker.Id);
+            if (same != null) throw new InvalidOperationException("the manager already has this folder, as " + same.Name + " (" + same.Folder + ")");
+            string? foreign = ForeignMarker(folder);
+            if (foreign != null) throw new InvalidOperationException(foreign);
+            t.Id = marker.Id;
+            t.Baseline = new Dictionary<string, string>(marker.Baseline, StringComparer.Ordinal);
+            t.Written = new Dictionary<string, string>(marker.Written, StringComparer.Ordinal);
+            t.Displaced = new Dictionary<string, string>(marker.Displaced, StringComparer.Ordinal);
+            t.ActiveMod = marker.ActiveMod;
+            t.UltimaHacks = marker.UltimaHacks;
+        }
+        else
+        {
+            DosGame.Adopt(t, Vault);
+            DosGame.WriteMarker(t);
+        }
         State.Targets.Add(t);
         Save();
         return t;
+    }
+
+    /// <summary>Why a folder's marker cannot be used (it was taken over by a manager whose vault
+    /// this one does not have), or null.</summary>
+    public string? ForeignMarker(string folder)
+    {
+        var marker = DosGame.ReadMarker(Path.GetFullPath(folder));
+        if (marker == null) return null;
+        bool missing = marker.Baseline.Values.Concat(marker.Displaced.Values).Any(sha => !Vault.Has(sha));
+        if (!missing) return null;
+        return "A mod manager took this folder over before, with originals this one does not have (another manager folder, or one that was lost)" +
+            (marker.Written.Count > 0 ? "; the folder has a mod in place (" + (marker.ActiveMod ?? "?") + ")" : "") +
+            ". Use the manager folder it was added with (UWMM_HOME), or take the folder's files as they are now as the originals.";
     }
 
     /// <summary>Adds an Exhumed build. The game folder is the one given, else the one the player's
@@ -68,8 +102,13 @@ public sealed class Manager
         return t;
     }
 
+    /// <summary>Forgets a target. A DOS folder must hold the original game first (otherwise
+    /// the originals of the files a mod changed would only be in the vault, unreachable).</summary>
     public void Remove(Target t)
     {
+        if (t.Kind == TargetKind.Dos && t.Written.Count > 0)
+            throw new InvalidOperationException(t.Name + " has a mod in place: put the original game back first");
+        if (t.Kind == TargetKind.Dos && Directory.Exists(t.Folder)) DosGame.DeleteMarker(t);
         State.Targets.Remove(t);
         Save();
     }
@@ -97,34 +136,28 @@ public sealed class Manager
         if (plan.OutsideChanges.Count > 0 && !overwrite)
             throw new ModApplyException("these files changed since the manager last wrote them: " + string.Join(", ", plan.OutsideChanges) +
                 ". Capture them as a mod first, or overwrite them.");
-        WriteJournal(t, modKey, ultimaHacks);
-        DosGame.Apply(plan, Vault, overwrite);
-        Save();
-        File.Delete(Paths.JournalFile);
+        DosGame.Apply(plan, Vault, Paths.JournalFile, Save, overwrite);
         return plan;
     }
 
-    /// <summary>Finishes a change a crash interrupted (the state and the files are made to match the journal's target).</summary>
+    /// <summary>Undoes a change of a DOS folder that was interrupted (the program stopped, the
+    /// computer went down): its files go back to what they were, from the vault. Returns a line for
+    /// the player, or null when there was nothing to do.</summary>
     public string? Recover()
     {
+        foreach (var d in State.Targets.Where(x => x.Kind == TargetKind.Dos)) DosGame.CleanTemporaries(d);
         if (!File.Exists(Paths.JournalFile)) return null;
-        var j = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(File.ReadAllText(Paths.JournalFile))!;
-        var t = State.Find(j["target"].GetString()!);
-        if (t == null) { File.Delete(Paths.JournalFile); return null; }
-        string? mod = j["mod"].ValueKind == JsonValueKind.Null ? null : j["mod"].GetString();
-        bool uh = j["ultimahacks"].GetBoolean();
-        // files the interrupted change already wrote are what the plan wants; the others are as before
-        var plan = PlanDos(t, mod, uh);
-        DosGame.Apply(plan, Vault, overwrite: false);
-        Save();
+        DosJournal j;
+        try { j = DosJournal.Load(Paths.JournalFile); }
+        catch (Exception e) when (e is System.Text.Json.JsonException or InvalidDataException)
+        {
+            File.Move(Paths.JournalFile, Paths.JournalFile + ".unreadable", true);
+            return "The record of an interrupted change could not be read (kept as journal.json.unreadable); check the game with Status.";
+        }
+        var t = State.Find(j.Target);
+        string? r = t == null ? null : DosGame.Recover(t, Vault, j);
         File.Delete(Paths.JournalFile);
-        return string.Format("Finished an interrupted change of {0} ({1}).", t.Name, mod ?? "the original game");
-    }
-
-    void WriteJournal(Target t, string? mod, bool uh)
-    {
-        var o = new Dictionary<string, object?> { ["target"] = t.Id, ["mod"] = mod, ["ultimahacks"] = uh, ["started"] = DateTime.UtcNow.ToString("o") };
-        Files.WriteAtomic(Paths.JournalFile, JsonSerializer.SerializeToUtf8Bytes(o));
+        return r;
     }
 
     /// <summary>The original of a file an Exhumed target reads: from the vault when a DOS target

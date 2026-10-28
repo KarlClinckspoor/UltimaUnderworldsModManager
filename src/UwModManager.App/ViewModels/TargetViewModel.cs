@@ -241,7 +241,7 @@ public sealed partial class TargetViewModel : ViewModelBase
     async Task RestoreSave(SlotItem? slot)
     {
         if (slot == null) return;
-        var backups = Saves.Backups(M.Paths).Where(b => b.EndsWith("-SAVE" + slot.Slot.Number + ".json")).Take(8).ToList();
+        var backups = Saves.Backups(M.Paths, M.SavesFolder(Target), slot.Slot.Number).Take(8).ToList();
         if (backups.Count == 0) { await main.Dialogs.Tell("No backups", "No backup of SAVE" + slot.Slot.Number + " yet: one is made whenever the manager replaces a slot."); return; }
         int which = await main.Dialogs.Ask("Restore SAVE" + slot.Slot.Number, "The slot's game now is backed up first. Which backup?", backups.Select(Path.GetFileNameWithoutExtension).ToArray()!);
         if (which < 0) return;
@@ -257,11 +257,13 @@ public sealed partial class TargetViewModel : ViewModelBase
     [RelayCommand]
     async Task Remove()
     {
-        int a = await main.Dialogs.Ask("Forget " + Target.Name, IsDos && Target.Written.Count > 0
-            ? "The folder has a mod in place. Put the original game back first?" : "The manager forgets this game; its files stay as they are.", IsDos && Target.Written.Count > 0 ? new[] { "Put it back, then forget", "Just forget", "Cancel" } : new[] { "Forget", "Cancel" });
-        bool restore = IsDos && Target.Written.Count > 0 && a == 0;
-        bool forget = IsDos && Target.Written.Count > 0 ? a is 0 or 1 : a == 0;
-        if (!forget) return;
+        bool modded = IsDos && Target.Written.Count > 0;
+        int a = await main.Dialogs.Ask("Forget " + Target.Name, modded
+            ? "The folder has a mod in place. The manager puts the original game back before it forgets the folder."
+            : "The manager forgets this game; its files stay as they are.",
+            modded ? new[] { "Put it back, then forget", "Cancel" } : new[] { "Forget", "Cancel" });
+        if (a != 0) return;
+        bool restore = modded;
         await main.Guard(async () =>
         {
             if (restore) await Task.Run(() => M.UseDos(Target, null, false));

@@ -55,22 +55,31 @@ public sealed class Library
         var pkg = ModPackage.FromBytes(bytes);
         var problems = pkg.Check();
         if (problems.Count > 0) throw new InvalidDataException("the package is not usable: " + string.Join("; ", problems));
-        string name = Safe(pkg.Manifest.Id + "-" + pkg.Manifest.Version) + ModPackage.Extension;
-        string dst = System.IO.Path.Combine(root, name);
+        string dst = FileFor(KeyOf(pkg.Manifest));
         Files.WriteAtomic(dst, bytes);
         return new LibraryEntry { Key = KeyOf(pkg.Manifest), Path = dst, Manifest = pkg.Manifest, Size = bytes.Length };
     }
 
     public void Add(ModPackage pkg)
     {
-        string dst = System.IO.Path.Combine(root, Safe(pkg.Manifest.Id + "-" + pkg.Manifest.Version) + ModPackage.Extension);
-        Files.WriteAtomic(dst, pkg.ToBytes());
+        Files.WriteAtomic(FileFor(KeyOf(pkg.Manifest)), pkg.ToBytes());
     }
 
     public void Remove(string key)
     {
         var e = Find(key);
         if (e != null) File.Delete(e.Path);
+    }
+
+    /// <summary>The package file of a key: the key's own name, or, when that file holds another
+    /// key (names that differ only in characters a file name cannot have), the name with the key's hash.</summary>
+    string FileFor(string key)
+    {
+        var existing = List().FirstOrDefault(e => e.Key == key);
+        if (existing != null) return existing.Path;
+        string plain = System.IO.Path.Combine(root, Safe(key) + ModPackage.Extension);
+        if (!File.Exists(plain)) return plain;
+        return System.IO.Path.Combine(root, Safe(key) + "-" + Files.Sha(System.Text.Encoding.UTF8.GetBytes(key))[7..15] + ModPackage.Extension);
     }
 
     static string Safe(string s)

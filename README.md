@@ -15,8 +15,14 @@ tool, `uwmod`, over the same core.
 - **One mod at a time.** Pick a mod or "The original game" for each game you added.
 - **DOS games are changed in place.** Before the manager touches a file it keeps the original
   in its vault, so the original game is always one click away. If the folder has the editor's
-  `.BKP` backups, those count as the originals. An apply that is interrupted is finished or
-  undone the next time the manager starts (or with `uwmod recover`).
+  `.BKP` backups, those count as the originals. A change is all or nothing: if a write fails,
+  the files already written are put back, and a change the program could not finish (a crash,
+  a power cut) is undone the next time the manager starts (or with `uwmod recover`). The folder
+  keeps a small `.uwmm-target.json` saying what its originals are, so adding it again later
+  never takes a mod's files for the originals.
+- **Packages are untrusted.** A package may only change the game's own files (the executable
+  and the DATA, CRIT, CUTS and SOUND folders) and a saved game's files; anything else is
+  refused when it is imported.
 - **UltimaHacks** (mouse-look, WASD and more) is built in for the DOS games: tick it and the
   manager makes the hacked executable from GOG's and applies the mod's executable tweaks on top.
 - **Underworld Exhumed** (the native ports, uw1port/uw2port) is never changed: each mod gets a

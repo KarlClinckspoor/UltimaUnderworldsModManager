@@ -41,7 +41,7 @@ public class SavesAndLauncherTests
         var problems = Saves.Install(m.Paths, m.Vault, pkg, slots[1], m.GameFiles(t), kind);
         Assert.Empty(problems);
         Assert.Equal("First", Saves.List(folder)[1].Description);
-        string backup = Saves.Backups(m.Paths).Single();
+        string backup = Saves.Backups(m.Paths, folder).Single();
         Saves.Restore(m.Paths, m.Vault, backup, Saves.List(folder)[1]);
         Assert.Equal("Second", Saves.List(folder)[1].Description);
         // a saved-game mod is not applied to the game

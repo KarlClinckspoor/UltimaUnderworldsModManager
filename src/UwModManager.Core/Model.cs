@@ -35,6 +35,13 @@ public sealed class Target
     public Dictionary<string, string> Baseline { get; set; } = new(StringComparer.Ordinal);
     /// <summary>Files the manager wrote (DOS: in the folder; Exhumed: in the mod's home), by hash.</summary>
     public Dictionary<string, string> Written { get; set; } = new(StringComparer.Ordinal);
+    /// <summary>DOS: files that are not originals (added after the take-over) which a mod overwrote,
+    /// by the hash of what was there (kept in the vault): the original game puts them back.</summary>
+    public Dictionary<string, string> Displaced { get; set; } = new(StringComparer.Ordinal);
+    /// <summary>DOS: changes made outside the manager that it overwrote when told to (kept in the vault).</summary>
+    public List<OverwrittenFile> Overwritten { get; set; } = new();
+    /// <summary>DOS: the stamp of the last change the manager finished (matched against an interrupted journal).</summary>
+    public string? LastChange { get; set; }
     /// <summary>Exhumed: the home folder Written refers to.</summary>
     public string? WrittenHome { get; set; }
     /// <summary>Exhumed: what --features reported (null: not asked yet, or an old build without it).</summary>
@@ -42,6 +49,13 @@ public sealed class Target
 
     [JsonIgnore] public UltimateEditor.Games.GameKind GameKind => Game == "uw2" ? UltimateEditor.Games.GameKind.UW2 : UltimateEditor.Games.GameKind.UW1;
     [JsonIgnore] public string ExeName => Game == "uw2" ? "UW2.EXE" : "UW.EXE";
+}
+
+public sealed class OverwrittenFile
+{
+    public string File { get; set; } = "";
+    public string Sha { get; set; } = "";
+    public DateTime When { get; set; }
 }
 
 /// <summary>What an Exhumed build says it can do (docs/MODDING.md of the fork, --features).</summary>

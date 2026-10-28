@@ -184,7 +184,11 @@ public static class ExhumedGame
         return home;
     }
 
-    static string HomePath(string home, string rel) => Path.Combine(new[] { home }.Concat(GameFolder.Normalize(rel).Split('/')).ToArray());
+    static string HomePath(string home, string rel)
+    {
+        if (!GameFolder.IsModFile(rel)) throw new ModApplyException("refused to write " + rel + ", which is not a game file");
+        return GameFolder.Inside(home, Path.Combine(new[] { home }.Concat(GameFolder.Normalize(rel).Split('/')).ToArray()));
+    }
     static string Whiteout(string home, string rel)
     {
         string p = HomePath(home, rel);

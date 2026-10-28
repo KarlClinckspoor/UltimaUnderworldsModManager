@@ -14,10 +14,13 @@ public static class Program
 
 Targets (games the manager installs mods into):
   targets                             list them
-  add-dos FOLDER [--name N]           take over a DOS game folder (originals into the vault)
+  add-dos FOLDER [--name N] [--as-is] take over a DOS game folder (originals into the vault);
+                                      --as-is: its files now are the originals, whatever a
+                                      manager recorded in it before
   add-exhumed PORT [--data FOLDER] [--name N]
                                       an Exhumed build (uw1port/uw2port) and the game it reads
-  remove TARGET                       forget a target (its files are left as they are)
+  remove TARGET                       forget a target (a DOS folder must have the original
+                                      game: use TARGET --original first)
   status TARGET                       the mod in use, files changed outside the manager, GOG check
 
 Mods:
@@ -71,7 +74,9 @@ TARGET is a target's id or name; MOD is a library key (id@version), or a .uwmod 
             case "add-dos":
             {
                 string? name = Take(a, "--name");
-                var t = m.AddDos(Arg(a, 0, "FOLDER"), name);
+                bool asIs = Flag(a, "--as-is");
+                var t = m.AddDos(Arg(a, 0, "FOLDER"), name, asIs);
+                if (t.Written.Count > 0) Console.WriteLine($"The folder was taken over before and has {t.ActiveMod} in place; its originals are in the vault.");
                 var (gog, differ, missing) = m.CompareWithGog(t);
                 Console.WriteLine($"Added {t.Name} ({t.Id}): {t.Baseline.Count} files kept in the vault; " + (gog ? "the GOG release." : $"not the GOG release ({differ.Count} files differ, {missing.Count} missing)."));
                 foreach (var c in DosGame.CdImageConfs(t.Folder))
@@ -99,6 +104,8 @@ TARGET is a target's id or name; MOD is a library key (id@version), or a .uwmod 
                     Console.WriteLine("Originals: " + (gog ? "the GOG release" : differ.Count + " files differ from the GOG release"));
                     var local = DosGame.LocalChanges(t);
                     Console.WriteLine(local.Count == 0 ? "No changes made outside the manager." : "Changed outside the manager: " + string.Join(", ", local));
+                    foreach (var o in t.Overwritten)
+                        Console.WriteLine($"Overwritten when told to, {o.When:yyyy-MM-dd HH:mm}: {o.File}, kept in the vault as {o.Sha}");
                 }
                 else Console.WriteLine("Home: " + ExhumedGame.HomeFor(m.Paths, t, t.ActiveMod));
                 return 0;

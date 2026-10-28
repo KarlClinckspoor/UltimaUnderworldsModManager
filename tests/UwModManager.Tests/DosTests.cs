@@ -157,25 +157,117 @@ public class DosTests
     }
 
     [Theory, MemberData(nameof(Env.Games), MemberType = typeof(Env))]
-    public void An_interrupted_change_is_finished_at_the_next_start(string game)
+    public void An_interrupted_change_is_undone_at_the_next_start(string game)
     {
         var (m, t, folder) = Setup(game);
         if (m == null) return;
         var kind = Env.Kind(game);
+        byte[] lev0 = Env.Read(folder, "DATA/LEV.ARK"), str0 = Env.Read(folder, "DATA/STRINGS.PAK");
         var a = Env.MakeMod(game, f => { Env.EditLevel(f, kind, 1, 100, 1); Env.EditString(f, 4, 3, "x"); }, "test.a");
         m.Library.Add(a);
         string key = Library.KeyOf(a.Manifest);
-        // a crash after the journal and one file: write the journal and LEV.ARK by hand
+        // the program stops after writing the files, before saving its state
         var plan = m.PlanDos(t, key, false);
-        File.WriteAllText(m.Paths.JournalFile, "{\"target\":\"" + t.Id + "\",\"mod\":\"" + key + "\",\"ultimahacks\":false}");
-        File.WriteAllBytes(new GameFolder(folder).Resolve("DATA/LEV.ARK"), plan.Writes["DATA/LEV.ARK"]);
+        Assert.Throws<IOException>(() => DosGame.Apply(plan, m.Vault, m.Paths.JournalFile, () => throw new IOException("power cut")));
+        Assert.True(File.Exists(m.Paths.JournalFile));
+        Assert.Equal(plan.Writes["DATA/LEV.ARK"], Env.Read(folder, "DATA/LEV.ARK"));
+        File.WriteAllBytes(new GameFolder(folder).Resolve("DATA") + "/STRINGS.PAK.uwmm-tmp", new byte[10]);
         var m2 = new Manager(m.Paths.Root);
-        Assert.Contains("interrupted", m2.Recover());
+        Assert.Contains("undone", m2.Recover());
         var t2 = m2.Get(t.Id);
-        Assert.Equal(key, t2.ActiveMod);
-        Assert.Equal(plan.Writes["DATA/STRINGS.PAK"], Env.Read(folder, "DATA/STRINGS.PAK"));
+        Assert.Null(t2.ActiveMod);
+        Assert.Equal(lev0, Env.Read(folder, "DATA/LEV.ARK"));
+        Assert.Equal(str0, Env.Read(folder, "DATA/STRINGS.PAK"));
         Assert.False(File.Exists(m.Paths.JournalFile));
+        Assert.Empty(Directory.GetFiles(folder, "*.uwmm-tmp", SearchOption.AllDirectories));
         Assert.Empty(DosGame.LocalChanges(t2));
+        // and a change that finished before the stop is left as it is
+        m2.UseDos(t2, key, false);
+        Assert.Null(m2.Recover());
+        Assert.Equal(key, m2.Get(t.Id).ActiveMod);
+    }
+
+    [Theory, MemberData(nameof(Env.Games), MemberType = typeof(Env))]
+    public void A_write_that_fails_puts_back_what_was_written(string game)
+    {
+        var (m, t, folder) = Setup(game);
+        if (m == null) return;
+        var kind = Env.Kind(game);
+        byte[] lev0 = Env.Read(folder, "DATA/LEV.ARK");
+        var a = Env.MakeMod(game, f =>
+        {
+            Env.EditLevel(f, kind, 1, 100, 1);
+            File.WriteAllBytes(Path.Combine(new GameFolder(f).Resolve("DATA")!, "NEW.DAT"), new byte[] { 1, 2, 3 });
+        }, "test.fail");
+        m.Library.Add(a);
+        // DATA/NEW.DAT comes after DATA/LEV.ARK, and cannot be written
+        Directory.CreateDirectory(Path.Combine(new GameFolder(folder).Resolve("DATA")!, "NEW.DAT.uwmm-tmp"));
+        Assert.ThrowsAny<Exception>(() => m.UseDos(t, Library.KeyOf(a.Manifest), false));
+        Assert.Equal(lev0, Env.Read(folder, "DATA/LEV.ARK"));
+        Assert.Null(t.ActiveMod);
+        Assert.Empty(t.Written);
+        Assert.False(File.Exists(m.Paths.JournalFile));
+        Assert.Empty(DosGame.LocalChanges(t));
+    }
+
+    [Theory, MemberData(nameof(Env.Games), MemberType = typeof(Env))]
+    public void A_folder_remembers_its_originals_when_the_manager_forgets_it(string game)
+    {
+        var (m, t, folder) = Setup(game);
+        if (m == null) return;
+        var kind = Env.Kind(game);
+        byte[] lev0 = Env.Read(folder, "DATA/LEV.ARK");
+        var a = Env.MakeMod(game, f => Env.EditLevel(f, kind, 1, 100, 1), "test.marker");
+        m.Library.Add(a);
+        m.UseDos(t, Library.KeyOf(a.Manifest), false);
+        // not forgotten with a mod in place
+        Assert.Throws<InvalidOperationException>(() => m.Remove(t));
+        // the state is lost: added again, the folder says what its originals are
+        File.Delete(m.Paths.StateFile);
+        var m2 = new Manager(m.Paths.Root);
+        var t2 = m2.AddDos(folder);
+        Assert.Equal(Library.KeyOf(a.Manifest), t2.ActiveMod);
+        Assert.Equal(t.Baseline, t2.Baseline);
+        Assert.Throws<InvalidOperationException>(() => m2.AddDos(folder));
+        m2.UseDos(t2, null, false);
+        Assert.Equal(lev0, Env.Read(folder, "DATA/LEV.ARK"));
+        // another manager, without these originals, does not take the modded files for originals
+        m2.UseDos(t2, Library.KeyOf(a.Manifest), false);
+        var other = new Manager(Env.Temp("mgr"));
+        Assert.NotNull(other.ForeignMarker(folder));
+        Assert.Throws<InvalidOperationException>(() => other.AddDos(folder));
+        Assert.Equal(Files.Sha(Env.Read(folder, "DATA/LEV.ARK")), other.AddDos(folder, null, asItIs: true).Baseline["DATA/LEV.ARK"]);
+        // forgotten with the original game back: the marker goes too
+        m2.UseDos(t2, null, false);
+        m2.Remove(t2);
+        Assert.Null(DosGame.ReadMarker(folder));
+    }
+
+    [Theory, MemberData(nameof(Env.Games), MemberType = typeof(Env))]
+    public void A_file_of_the_player_a_mod_overwrote_comes_back_with_the_original_game(string game)
+    {
+        var (m, t, folder) = Setup(game);
+        if (m == null) return;
+        var a = Env.MakeMod(game, f => File.WriteAllBytes(Path.Combine(new GameFolder(f).Resolve("DATA")!, "EXTRA.DAT"), new byte[] { 9, 9 }), "test.extra");
+        m.Library.Add(a);
+        // the player put a file of that name there after the manager took the folder over
+        string mine = Path.Combine(new GameFolder(folder).Resolve("DATA")!, "EXTRA.DAT");
+        File.WriteAllBytes(mine, new byte[] { 1, 2, 3, 4 });
+        Assert.Throws<ModApplyException>(() => m.UseDos(t, Library.KeyOf(a.Manifest), false));
+        m.UseDos(t, Library.KeyOf(a.Manifest), false, overwrite: true);
+        Assert.Equal(new byte[] { 9, 9 }, File.ReadAllBytes(mine));
+        m.UseDos(t, null, false);
+        Assert.Equal(new byte[] { 1, 2, 3, 4 }, File.ReadAllBytes(mine));
+        Assert.Empty(t.Displaced);
+        // a change to an original overwritten when told to is kept in the vault
+        Env.EditString(folder, 4, 3, "my own edit");
+        var b = Env.MakeMod(game, f => Env.EditString(f, 4, 2, "the mod's"), "test.strings");
+        m.Library.Add(b);
+        byte[] edited = Env.Read(folder, "DATA/STRINGS.PAK");
+        m.UseDos(t, Library.KeyOf(b.Manifest), false, overwrite: true);
+        var o = Assert.Single(t.Overwritten);
+        Assert.Equal("DATA/STRINGS.PAK", o.File);
+        Assert.Equal(edited, m.Vault.Get(o.Sha));
     }
 
     [Theory, MemberData(nameof(Env.Games), MemberType = typeof(Env))]
